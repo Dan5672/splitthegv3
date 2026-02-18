@@ -521,7 +521,7 @@
 </head>
 <body>
 
-    <div class="version">v1.3</div>
+    <div class="version">v1.4</div>
 
     <!-- ═══════════════════════════════════════════
          START SCREEN
@@ -608,7 +608,7 @@
     (() => {
         'use strict';
 
-        const VERSION = 'v1.3';
+        const VERSION = 'v1.4';
 
         /* ════════════════════════════════════════════════════════
          * PHYSICS CONSTANTS — Tweak these to change the "feel"
@@ -964,10 +964,12 @@
                 grannyPool = GRANNY_DOWNED;
             } else if (liquidLevel > WIN_HIGH) {
                 title = 'Drink More!';
-                sub = 'Didn\'t commit to the sip.';
+                sub = '';
+                grannyPool = GRANNY_INSULTS;
             } else {
                 title = 'Too Greedy!';
-                sub = 'Ye drank past the G!';
+                sub = '';
+                grannyPool = GRANNY_INSULTS;
             }
 
             if (grannyPool) {
