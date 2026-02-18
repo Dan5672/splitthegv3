@@ -683,7 +683,6 @@
             sensorInfo: $('sensor-info'),
             scoreTitle: $('score-title'),
             scoreSub:   $('score-subtitle'),
-            sLevel:     $('s-level'),
             sAccuracy:  $('s-accuracy'),
             accFill:    $('acc-fill'),
             miniLiquid: $('mini-liquid'),
@@ -962,7 +961,6 @@
 
             dom.scoreTitle.textContent = title;
             dom.scoreSub.textContent   = sub;
-            dom.sLevel.textContent     = liquidLevel.toFixed(1) + '%';
             dom.sAccuracy.textContent  = accuracy.toFixed(0) + '%';
 
             dom.accFill.className = 'accuracy-fill ' +
