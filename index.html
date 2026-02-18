@@ -389,36 +389,11 @@
             margin-bottom: 24px;
         }
         .granny-char {
-            position: relative;
-            font-size: 56px;
-            line-height: 1;
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 50%;
             flex-shrink: 0;
-        }
-        /* Irish flat cap */
-        .granny-char::before {
-            content: '';
-            position: absolute;
-            top: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 48px;
-            height: 16px;
-            background: #2d6e2d;
-            border-radius: 50% 50% 4px 4px;
-            z-index: 1;
-        }
-        /* Cap brim */
-        .granny-char::after {
-            content: '';
-            position: absolute;
-            top: 4px;
-            left: 50%;
-            transform: translateX(-42%);
-            width: 38px;
-            height: 6px;
-            background: #245524;
-            border-radius: 0 8px 4px 0;
-            z-index: 2;
         }
         .granny-bubble {
             background: #2a1c14;
@@ -546,7 +521,7 @@
 </head>
 <body>
 
-    <div class="version">v1.1</div>
+    <div class="version">v1.2</div>
 
     <!-- ═══════════════════════════════════════════
          START SCREEN
@@ -603,7 +578,7 @@
         <h2 id="score-title" class="score-title"></h2>
         <div id="score-subtitle" class="score-subtitle"></div>
         <div id="granny" class="granny">
-            <div class="granny-char">👵🏻</div>
+            <img class="granny-char" src="granny.png" alt="Angry Irish granny">
             <div class="granny-bubble" id="granny-bubble"></div>
         </div>
         <div class="mini-glass-wrap">
@@ -641,7 +616,7 @@
     (() => {
         'use strict';
 
-        const VERSION = 'v1.1';
+        const VERSION = 'v1.2';
 
         /* ════════════════════════════════════════════════════════
          * PHYSICS CONSTANTS — Tweak these to change the "feel"
