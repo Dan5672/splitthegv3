@@ -561,40 +561,28 @@
                         <div id="foam" class="foam"></div>
                     </div>
                 </div>
-                <!-- DEBUG: percentage ruler -->
-                <div class="debug-ruler" style="position:absolute;inset:0;z-index:30;pointer-events:none;">
-                    <div style="position:absolute;bottom:10%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,0,0,0.7);">10%</div>
-                    <div style="position:absolute;bottom:20%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,0,0,0.7);">20%</div>
-                    <div style="position:absolute;bottom:30%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,0,0,0.7);">30%</div>
-                    <div style="position:absolute;bottom:40%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,0,0,0.7);">40%</div>
-                    <div style="position:absolute;bottom:50%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,0,0,0.7);">50%</div>
-                    <div style="position:absolute;bottom:55%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,0,0.7);">55%</div>
-                    <div style="position:absolute;bottom:60%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,0,0,0.7);">60%</div>
-                    <div style="position:absolute;bottom:65%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,0,0.7);">65%</div>
-                    <div style="position:absolute;bottom:70%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,0,0,0.7);">70%</div>
-                    <div style="position:absolute;bottom:75%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,0,0.9);">75% (TARGET)</div>
-                    <div style="position:absolute;bottom:80%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,0,0,0.7);">80%</div>
-                    <div style="position:absolute;bottom:85%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,0,0.7);">85%</div>
-                    <div style="position:absolute;bottom:90%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,0,0,0.7);">90%</div>
-                    <div style="position:absolute;bottom:95%;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,0,0,0.7);">95%</div>
-                    <svg style="position:absolute;inset:0;width:100%;height:100%;">
-                        <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(255,0,0,0.15)" stroke-width="1"/>
-                        <line x1="30%" y1="90%" x2="70%" y2="90%" stroke="rgba(255,0,0,0.3)" stroke-width="1"/>
-                        <line x1="30%" y1="80%" x2="70%" y2="80%" stroke="rgba(255,0,0,0.3)" stroke-width="1"/>
-                        <line x1="30%" y1="70%" x2="70%" y2="70%" stroke="rgba(255,0,0,0.3)" stroke-width="1"/>
-                        <line x1="30%" y1="60%" x2="70%" y2="60%" stroke="rgba(255,0,0,0.3)" stroke-width="1"/>
-                        <line x1="30%" y1="50%" x2="70%" y2="50%" stroke="rgba(255,0,0,0.3)" stroke-width="1"/>
-                        <line x1="30%" y1="45%" x2="70%" y2="45%" stroke="rgba(255,255,0,0.3)" stroke-width="1"/>
-                        <line x1="30%" y1="40%" x2="70%" y2="40%" stroke="rgba(255,0,0,0.3)" stroke-width="1"/>
-                        <line x1="30%" y1="35%" x2="70%" y2="35%" stroke="rgba(255,255,0,0.3)" stroke-width="1"/>
-                        <line x1="30%" y1="30%" x2="70%" y2="30%" stroke="rgba(255,0,0,0.3)" stroke-width="1"/>
-                        <line x1="25%" y1="25%" x2="75%" y2="25%" stroke="rgba(255,255,0,0.6)" stroke-width="1.5"/>
-                        <line x1="30%" y1="20%" x2="70%" y2="20%" stroke="rgba(255,0,0,0.3)" stroke-width="1"/>
-                        <line x1="30%" y1="15%" x2="70%" y2="15%" stroke="rgba(255,255,0,0.3)" stroke-width="1"/>
-                        <line x1="30%" y1="10%" x2="70%" y2="10%" stroke="rgba(255,0,0,0.3)" stroke-width="1"/>
-                        <line x1="30%" y1="5%" x2="70%" y2="5%" stroke="rgba(255,0,0,0.3)" stroke-width="1"/>
-                    </svg>
-                </div>
+                <!-- DEBUG: percentage ruler (1% increments) -->
+                <div id="debug-ruler" style="position:absolute;inset:0;z-index:30;pointer-events:none;"></div>
+                <script>
+                (function(){
+                    var r = document.getElementById('debug-ruler');
+                    for (var i = 1; i <= 99; i++) {
+                        var is5 = i % 5 === 0;
+                        var is10 = i % 10 === 0;
+                        var d = document.createElement('div');
+                        d.style.cssText = 'position:absolute;bottom:' + i + '%;left:0;right:0;height:0;border-top:1px solid ' +
+                            (is10 ? 'rgba(255,255,0,0.6)' : is5 ? 'rgba(255,255,0,0.3)' : 'rgba(255,0,0,0.2)') + ';';
+                        if (is5) {
+                            var lbl = document.createElement('span');
+                            lbl.style.cssText = 'position:absolute;right:4px;top:-10px;font-size:8px;font-family:monospace;color:' +
+                                (is10 ? 'rgba(255,255,0,0.9)' : 'rgba(255,200,0,0.6)') + ';';
+                            lbl.textContent = i + '%';
+                            d.appendChild(lbl);
+                        }
+                        r.appendChild(d);
+                    }
+                })();
+                </script>
                 <!-- "Split the G" etched on the glass -->
                 <div class="g-text">
                     <span class="g-line1">Split the</span>
