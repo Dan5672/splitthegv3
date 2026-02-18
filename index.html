@@ -377,6 +377,69 @@
         .accuracy-fill.red { background: #a84e4e; }
 
         /* ════════════════════════════════════════
+           GRANNY INSULT (bad pour Easter egg)
+           ════════════════════════════════════════ */
+        .granny { display: none; }
+        .granny.active {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            width: 100%;
+            max-width: 300px;
+            margin-bottom: 24px;
+        }
+        .granny-char {
+            font-size: 56px;
+            line-height: 1;
+            flex-shrink: 0;
+            animation: granny-enter 0.6s cubic-bezier(0.17, 0.67, 0.35, 1.3);
+        }
+        .granny-bubble {
+            background: #2a2218;
+            border: 1px solid rgba(200,168,78,0.3);
+            border-radius: 14px;
+            padding: 14px 16px;
+            font-family: 'IM Fell English SC', serif;
+            font-size: 0.95rem;
+            color: #e8dcc6;
+            line-height: 1.5;
+            position: relative;
+            opacity: 0;
+            animation: bubble-pop 0.4s ease-out 0.4s forwards;
+        }
+        .granny-bubble::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 18px;
+            border: 8px solid transparent;
+            border-right-color: #2a2218;
+            border-left: none;
+        }
+        @keyframes granny-enter {
+            0%   { transform: translateX(-80px) rotate(-15deg); opacity: 0; }
+            50%  { transform: translateX(8px) rotate(5deg); opacity: 1; }
+            70%  { transform: translateX(-3px) rotate(-2deg); }
+            100% { transform: translateX(0) rotate(0); }
+        }
+        @keyframes bubble-pop {
+            0%   { opacity: 0; transform: scale(0.7); }
+            70%  { transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes granny-shake {
+            0%, 100% { transform: rotate(0); }
+            20%  { transform: rotate(-8deg); }
+            40%  { transform: rotate(8deg); }
+            60%  { transform: rotate(-5deg); }
+            80%  { transform: rotate(5deg); }
+        }
+        .granny.active .granny-char {
+            animation: granny-enter 0.6s cubic-bezier(0.17, 0.67, 0.35, 1.3),
+                       granny-shake 0.6s ease-in-out 1s;
+        }
+
+        /* ════════════════════════════════════════
            MINI GLASS (Score screen)
            ════════════════════════════════════════ */
         .mini-glass-wrap {
@@ -506,6 +569,10 @@
     <div id="screen-score" class="screen">
         <h2 id="score-title" class="score-title"></h2>
         <div id="score-subtitle" class="score-subtitle"></div>
+        <div id="granny" class="granny">
+            <div class="granny-char">👵</div>
+            <div class="granny-bubble" id="granny-bubble"></div>
+        </div>
         <div class="mini-glass-wrap">
             <svg class="mini-glass-svg" viewBox="0 0 72 130">
                 <path class="mini-glass-path" d="M 1.2,0 L 70.8,0 L 72,32.5 C 72,56.9 63,79.2 60.5,93.4 Q 59.7,111.7 62.6,130 L 9.4,130 Q 12.3,111.7 11.5,93.4 C 9,79.2 0,56.9 0,32.5 L 1.2,0 Z"/>
@@ -620,6 +687,8 @@
             sAccuracy:  $('s-accuracy'),
             accFill:    $('acc-fill'),
             miniLiquid: $('mini-liquid'),
+            granny:     $('granny'),
+            grannyBub:  $('granny-bubble'),
         };
 
         /* ════════════════════════════════════════════════════════
@@ -837,6 +906,16 @@
             rafId = requestAnimationFrame(tick);
         }
 
+        const GRANNY_INSULTS = [
+            "Jaysus, Mary, and Joseph! Me cat could drink a better pint than that!",
+            "Would ye look at the STATE of that?! An absolute disgrace!",
+            "Holy Mother of God! Give me the glass, ye hopeless eejit!",
+            "That's a mortal sin, that is. I'm ringing Father O'Brien!",
+            "Me dead husband drank better and he had the shakes, God rest him!",
+            "Were ye not taught how to drink properly?! Cop on!",
+            "Yer man here couldn't split a G if his life depended on it!",
+        ];
+
         function endGame() {
             state = 'scored';
             if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
@@ -853,6 +932,20 @@
             else if (liquidLevel > TARGET_LEVEL) {
                                      title = 'Drink More!';      sub = 'Didn\'t commit to the sip.'; }
             else                   { title = 'Too Greedy!';      sub = 'Left the G behind.'; }
+
+            /* Granny insult for truly awful pours */
+            if (accuracy <= 10) {
+                title = 'Mother of God!';
+                sub = '';
+                const insult = GRANNY_INSULTS[Math.floor(Math.random() * GRANNY_INSULTS.length)];
+                dom.grannyBub.textContent = insult;
+                /* Remove then re-add .active to restart CSS animations */
+                dom.granny.classList.remove('active');
+                void dom.granny.offsetWidth;
+                dom.granny.classList.add('active');
+            } else {
+                dom.granny.classList.remove('active');
+            }
 
             dom.scoreTitle.textContent = title;
             dom.scoreSub.textContent   = sub;
