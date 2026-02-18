@@ -294,7 +294,7 @@
         /* ─── "SPLIT THE G" TEXT (replaces gold line) ─── */
         .g-text {
             position: absolute;
-            bottom: 58%;
+            bottom: 60%;
             left: 0;
             right: 0;
             text-align: center;
@@ -506,7 +506,7 @@
         }
         .mini-g-text {
             position: absolute;
-            bottom: 70%;
+            bottom: 61%;
             left: 0;
             right: 0;
             text-align: center;
@@ -521,7 +521,7 @@
 </head>
 <body>
 
-    <div class="version">v1.2</div>
+    <div class="version">v1.3</div>
 
     <!-- ═══════════════════════════════════════════
          START SCREEN
@@ -561,28 +561,6 @@
                         <div id="foam" class="foam"></div>
                     </div>
                 </div>
-                <!-- DEBUG: percentage ruler (1% increments) -->
-                <div id="debug-ruler" style="position:absolute;inset:0;z-index:30;pointer-events:none;"></div>
-                <script>
-                (function(){
-                    var r = document.getElementById('debug-ruler');
-                    for (var i = 1; i <= 99; i++) {
-                        var is5 = i % 5 === 0;
-                        var is10 = i % 10 === 0;
-                        var d = document.createElement('div');
-                        d.style.cssText = 'position:absolute;bottom:' + i + '%;left:0;right:0;height:0;border-top:1px solid ' +
-                            (is10 ? 'rgba(255,255,0,0.6)' : is5 ? 'rgba(255,255,0,0.3)' : 'rgba(255,0,0,0.2)') + ';';
-                        if (is5) {
-                            var lbl = document.createElement('span');
-                            lbl.style.cssText = 'position:absolute;right:4px;top:-10px;font-size:8px;font-family:monospace;color:' +
-                                (is10 ? 'rgba(255,255,0,0.9)' : 'rgba(255,200,0,0.6)') + ';';
-                            lbl.textContent = i + '%';
-                            d.appendChild(lbl);
-                        }
-                        r.appendChild(d);
-                    }
-                })();
-                </script>
                 <!-- "Split the G" etched on the glass -->
                 <div class="g-text">
                     <span class="g-line1">Split the</span>
@@ -600,7 +578,7 @@
         <h2 id="score-title" class="score-title"></h2>
         <div id="score-subtitle" class="score-subtitle"></div>
         <div id="granny" class="granny">
-            <img class="granny-char" src="granny.png" alt="Angry Irish granny">
+            <img class="granny-char" id="granny-img" src="granny.png" alt="Irish granny">
             <div class="granny-bubble" id="granny-bubble"></div>
         </div>
         <div class="mini-glass-wrap">
@@ -630,7 +608,7 @@
     (() => {
         'use strict';
 
-        const VERSION = 'v1.2';
+        const VERSION = 'v1.3';
 
         /* ════════════════════════════════════════════════════════
          * PHYSICS CONSTANTS — Tweak these to change the "feel"
@@ -661,7 +639,9 @@
         const LIQUID_BOTTOM_PAD = 60;
 
         /* GAME RULES */
-        const TARGET_LEVEL     = 75;
+        const WIN_LOW          = 65.1;
+        const WIN_HIGH         = 68.1;
+        const TARGET_LEVEL     = (WIN_LOW + WIN_HIGH) / 2;
         const SETTLE_THRESHOLD = 8;
         const SETTLE_TIME      = 1.0;
 
@@ -709,6 +689,7 @@
             accFill:    $('acc-fill'),
             miniLiquid: $('mini-liquid'),
             granny:     $('granny'),
+            grannyImg:  $('granny-img'),
             grannyBub:  $('granny-bubble'),
         };
 
@@ -948,31 +929,49 @@
             "Lord above! I've seen thirstier camels show more restraint!",
         ];
 
+        const GRANNY_WIN = [
+            "Ah would ye look at that! A PERFECT split! I'm so proud I could cry!",
+            "Jaysus, that's a beautiful pint! Yer granny taught ye well!",
+            "Holy Mother of God! That's the finest split I've ever seen!",
+            "Now THAT'S how ye drink a Guinness! Fair play to ye, love!",
+            "Would ye look at the state of PERFECTION! Arthur Guinness himself would be proud!",
+            "Ah sure, I always knew ye had it in ye! That's me grandchild!",
+            "In the name of all that's holy, that's a GORGEOUS split! Come here and give us a hug!",
+        ];
+
         function endGame() {
             state = 'scored';
             if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
 
-            const diff     = Math.abs(liquidLevel - TARGET_LEVEL);
-            const accuracy = Math.max(0, 100 - diff * 2.5);
+            const isWin = liquidLevel >= WIN_LOW && liquidLevel <= WIN_HIGH;
 
             let title, sub;
-            if (diff <= 0.5)       { title = 'Perfect Split!';   sub = 'Absolutely nailed it.'; }
-            else if (diff <= 2)    { title = 'Incredible!';      sub = 'Surgeon-level precision.'; }
-            else if (diff <= 5)    { title = 'Great Split!';     sub = 'Proper pub skills.'; }
-            else if (diff <= 10)   { title = 'Good Effort';      sub = 'Getting there.'; }
-            else if (diff <= 20)   { title = 'Not Bad';          sub = 'Room for improvement.'; }
-            else if (liquidLevel > TARGET_LEVEL) {
-                                     title = 'Drink More!';      sub = 'Didn\'t commit to the sip.'; }
-            else                   { title = 'Too Greedy!';      sub = 'Left the G behind.'; }
-
-            /* Granny insult for terrible pours */
             let grannyPool = null;
-            if (liquidLevel >= 90) grannyPool = GRANNY_INSULTS;
-            if (liquidLevel <= 20) grannyPool = GRANNY_DOWNED;
+            let grannyHappy = false;
+
+            if (isWin) {
+                title = 'You Split the G!';
+                sub = 'Sláinte!';
+                grannyPool = GRANNY_WIN;
+                grannyHappy = true;
+            } else if (liquidLevel >= 90) {
+                title = 'Mother of God!';
+                sub = '';
+                grannyPool = GRANNY_INSULTS;
+            } else if (liquidLevel <= 20) {
+                title = 'Holy Mother!';
+                sub = '';
+                grannyPool = GRANNY_DOWNED;
+            } else if (liquidLevel > WIN_HIGH) {
+                title = 'Drink More!';
+                sub = 'Didn\'t commit to the sip.';
+            } else {
+                title = 'Too Greedy!';
+                sub = 'Ye drank past the G!';
+            }
 
             if (grannyPool) {
-                title = liquidLevel <= 20 ? 'Holy Mother!' : 'Mother of God!';
-                sub = '';
+                dom.grannyImg.src = grannyHappy ? 'granny-happy.png' : 'granny.png';
                 dom.grannyBub.textContent = grannyPool[Math.floor(Math.random() * grannyPool.length)];
                 dom.granny.classList.remove('active');
                 void dom.granny.offsetWidth;
@@ -983,10 +982,11 @@
 
             dom.scoreTitle.textContent = title;
             dom.scoreSub.textContent   = sub;
+
+            const accuracy = isWin ? 100 : Math.max(0, 100 - Math.abs(liquidLevel - TARGET_LEVEL) * 2.5);
             dom.sAccuracy.textContent  = accuracy.toFixed(0) + '%';
 
-            dom.accFill.className = 'accuracy-fill ' +
-                (accuracy >= 90 ? 'green' : accuracy >= 50 ? 'gold' : 'red');
+            dom.accFill.className = 'accuracy-fill ' + (isWin ? 'green' : 'red');
 
             dom.miniLiquid.style.height = liquidLevel + '%';
 
