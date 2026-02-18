@@ -383,6 +383,7 @@
         <div class="hud">
             <div>Tilt: <span class="hud-val" id="hud-tilt">0</span>&deg;</div>
             <div>Level: <span class="hud-val" id="hud-level">100.0</span>%</div>
+            <div>Raw: <span class="hud-val" id="hud-raw">—</span></div>
         </div>
         <div class="pour-indicator" id="pour-ind">POURING</div>
         <div class="glass-area">
@@ -529,6 +530,7 @@
             foam:       $('foam'),
             hudTilt:    $('hud-tilt'),
             hudLevel:   $('hud-level'),
+            hudRaw:     $('hud-raw'),
             pourInd:    $('pour-ind'),
             sensorInfo: $('sensor-info'),
             scoreTitle: $('score-title'),
@@ -673,14 +675,19 @@
             lastTime = now;
 
             // ── Calibrated tilt ──
-            // relativeTilt = how far the phone is tilted from the calibrated upright.
-            // Positive = tilting forward (drinking direction).
-            const relativeTilt = currentBeta - initialBeta;
-            const tilt = clamp(relativeTilt, 0, MAX_TILT);
+            // rawTilt is signed: negative = tilting top toward you (drinking),
+            //                    positive = tilting top away from you.
+            // We use Math.abs so pouring works in EITHER direction — the natural
+            // drinking motion (top toward you) decreases beta, which was the
+            // original bug (the old code only responded to increasing beta).
+            const rawTilt = currentBeta - initialBeta;
+            const tilt = clamp(Math.abs(rawTilt), 0, MAX_TILT);
+            const tiltSign = rawTilt >= 0 ? 1 : -1;
 
             // ── Spring-Damper physics for liquid surface ──
             // Target is where the surface WANTS to be (proportional to tilt).
-            const target = (tilt / MAX_TILT) * MAX_SURFACE_ANGLE;
+            // tiltSign preserves the visual wobble direction.
+            const target = tiltSign * (tilt / MAX_TILT) * MAX_SURFACE_ANGLE;
 
             // Spring pulls surface toward target, damping resists velocity
             const springForce  =  SPRING_K * (target - surfaceAngle);
@@ -719,8 +726,9 @@
             render(isPouring);
 
             // Update HUD
-            dom.hudTilt.textContent  = relativeTilt.toFixed(0);
+            dom.hudTilt.textContent  = tilt.toFixed(0);
             dom.hudLevel.textContent = liquidLevel.toFixed(1);
+            dom.hudRaw.textContent   = currentBeta.toFixed(0);
 
             rafId = requestAnimationFrame(tick);
         }
