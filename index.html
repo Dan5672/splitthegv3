@@ -42,6 +42,19 @@
         }
 
         /* ════════════════════════════════════════
+           VERSION FOOTER (all screens)
+           ════════════════════════════════════════ */
+        .version {
+            position: fixed;
+            bottom: 6px;
+            right: 10px;
+            font-size: 0.6rem;
+            color: #3a3228;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        /* ════════════════════════════════════════
            START SCREEN
            ════════════════════════════════════════ */
         .title {
@@ -71,7 +84,9 @@
         .sensor-info {
             margin-top: 24px;
             font-size: 0.7rem;
-            color: #504838;
+            color: #706850;
+            text-align: center;
+            min-height: 2.5em;
         }
 
         /* ════════════════════════════════════════
@@ -89,6 +104,7 @@
             -webkit-tap-highlight-color: transparent;
         }
         .btn:active { transform: scale(0.95); }
+        .btn:disabled { opacity: 0.5; }
 
         .btn-primary {
             background: linear-gradient(135deg, #d4b050, #a08030);
@@ -116,21 +132,36 @@
             width: 100%;
             display: flex;
             justify-content: center;
-            gap: 32px;
+            gap: 24px;
             font-size: 0.8rem;
             color: #7a6a4a;
             font-variant-numeric: tabular-nums;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             flex-shrink: 0;
         }
         .hud-val { color: #c8a84e; font-weight: 600; }
+
+        /* Debug panel — visible during gameplay for diagnostics */
+        .debug {
+            width: 100%;
+            padding: 6px 12px;
+            background: rgba(200,168,78,0.06);
+            border-radius: 6px;
+            font-size: 0.65rem;
+            color: #8a7a5a;
+            font-family: monospace;
+            line-height: 1.6;
+            text-align: center;
+            margin-bottom: 4px;
+            flex-shrink: 0;
+        }
 
         .pour-indicator {
             font-size: 0.7rem;
             font-weight: 700;
             letter-spacing: 0.25em;
             color: #c8a84e;
-            height: 20px;
+            height: 18px;
             opacity: 0;
             transition: opacity 0.15s;
             flex-shrink: 0;
@@ -159,7 +190,6 @@
             inset: 0;
             overflow: hidden;
             border-radius: 0 0 10px 10px;
-            /* Subtle glass edges */
             border: 2px solid rgba(255,255,255,0.18);
             border-top: none;
             background: rgba(255,255,255,0.02);
@@ -185,11 +215,9 @@
         /* ─── LIQUID ─── */
         .liquid {
             position: absolute;
-            /* Extends beyond glass bounds so rotation doesn't expose edges */
             bottom: -60px;
             left: -50%;
             width: 200%;
-            /* Height set by JS */
             background: #1a1a1a;
             transform-origin: center center;
             z-index: 1;
@@ -202,7 +230,6 @@
             top: 0;
             left: 0;
             width: 100%;
-            /* Height set by JS */
             background: linear-gradient(180deg,
                 #f5edd6 0%,
                 #ede1c8 20%,
@@ -361,6 +388,9 @@
 </head>
 <body>
 
+    <!-- VERSION FOOTER — always visible -->
+    <div class="version" id="version">v0.4</div>
+
     <!-- ═══════════════════════════════════════════
          START SCREEN
          ═══════════════════════════════════════════ -->
@@ -371,10 +401,10 @@
             <p><span>1.</span> Hold your phone upright like a pint</p>
             <p><span>2.</span> Tap START, then tilt to "drink"</p>
             <p><span>3.</span> Return upright at the gold line</p>
-            <p style="font-size:0.8rem;color:#605848;margin-top:8px">No gyroscope? Touch mode activates automatically — drag up to tilt.</p>
+            <p style="font-size:0.8rem;color:#605848;margin-top:8px">No gyroscope? Touch mode activates automatically.</p>
         </div>
         <button id="btn-start" class="btn btn-primary">START</button>
-        <div class="sensor-info" id="sensor-info">Checking sensors...</div>
+        <div class="sensor-info" id="sensor-info">Tap START to begin.</div>
     </div>
 
     <!-- ═══════════════════════════════════════════
@@ -384,8 +414,8 @@
         <div class="hud">
             <div>Tilt: <span class="hud-val" id="hud-tilt">0</span>&deg;</div>
             <div>Level: <span class="hud-val" id="hud-level">100.0</span>%</div>
-            <div>Raw: <span class="hud-val" id="hud-raw">—</span></div>
         </div>
+        <div class="debug" id="debug">sensor: — | beta: — | init: — | events: 0</div>
         <div class="pour-indicator" id="pour-ind">POURING</div>
         <div class="glass-area">
             <div class="glass-wrap">
@@ -441,6 +471,8 @@
     (() => {
         'use strict';
 
+        const VERSION = 'v0.4';
+
         /* ════════════════════════════════════════════════════════
          * PHYSICS CONSTANTS — Tweak these to change the "feel"
          * ════════════════════════════════════════════════════════
@@ -451,66 +483,50 @@
          *
          *   acceleration = SPRING_K * (target - current) - DAMPING_C * velocity
          *
-         * This is NOT a 1:1 mapping of phone tilt to liquid angle.
-         * Instead, the liquid "lags" behind the phone, overshoots
-         * slightly, and wobbles before settling — like a real stout.
-         *
-         * Key derived values from the constants below:
+         * Key derived values:
          *   Natural frequency:  w0 = sqrt(K)   ≈ 12.2 rad/s  (~2 Hz)
          *   Damping ratio:      z  = C/(2*w0)  ≈ 0.74
          *
-         *   z < 1 = underdamped  → wobbles before settling
-         *   z = 1 = critically damped → fastest settle, no wobble
-         *   z > 1 = overdamped  → sluggish, no wobble
+         *   z < 1 = underdamped (wobbles)  |  z = 1 = critical  |  z > 1 = overdamped
+         *   Current (z ≈ 0.74) = subtle heavy wobble, like a thick stout.
          *
-         *   Current setting (z ≈ 0.74): slightly underdamped.
-         *   You get a subtle, heavy wobble — like a thick stout, not water.
-         *
-         * TO MAKE IT FEEL HEAVIER:  decrease K (slower response)
-         * TO MAKE IT WOBBLIER:      decrease C (less friction)
-         * TO MAKE IT SNAPPIER:      increase K (faster response)
-         * TO KILL THE WOBBLE:       increase C past 2*sqrt(K) ≈ 24.5
+         * TO MAKE IT HEAVIER:  decrease K    TO MAKE IT WOBBLIER: decrease C
+         * TO MAKE IT SNAPPIER: increase K    TO KILL WOBBLE:      increase C past ~24.5
          */
-        const SPRING_K  = 150;   // Spring stiffness (higher = snappier)
-        const DAMPING_C = 18;    // Damping friction (higher = less wobble)
+        const SPRING_K  = 150;
+        const DAMPING_C = 18;
 
-        /* POURING BEHAVIOUR
-         * ─────────────────
-         * Liquid only flows when tilt exceeds POUR_THRESHOLD.
-         * Flow rate scales linearly from 0 at threshold to
-         * MAX_POUR_RATE at MAX_TILT. Beyond MAX_TILT, rate is capped.
-         */
-        const POUR_THRESHOLD = 20;  // degrees before liquid starts flowing
+        /* POURING BEHAVIOUR */
+        const POUR_THRESHOLD = 15;  // degrees before liquid starts flowing
         const MAX_POUR_RATE  = 30;  // % of glass per second at max tilt
         const MAX_TILT       = 70;  // degrees — tilt ceiling for pour rate
 
         /* VISUAL LIMITS */
-        const MAX_SURFACE_ANGLE = 15;  // max visual rotation (degrees)
-        const FOAM_HEIGHT_MAX   = 28;  // max foam band height (px)
-        const GLASS_HEIGHT      = 320; // must match CSS .glass-wrap height
-        const LIQUID_BOTTOM_PAD = 60;  // must match CSS .liquid bottom offset
+        const MAX_SURFACE_ANGLE = 15;
+        const FOAM_HEIGHT_MAX   = 28;
+        const GLASS_HEIGHT      = 320;
+        const LIQUID_BOTTOM_PAD = 60;
 
         /* GAME RULES */
-        const TARGET_LEVEL     = 60;   // the "G" line (% from bottom)
-        const SETTLE_THRESHOLD = 8;    // degrees — considered "upright"
-        const SETTLE_TIME      = 1.0;  // seconds upright after pouring → auto-stop
+        const TARGET_LEVEL     = 60;
+        const SETTLE_THRESHOLD = 8;
+        const SETTLE_TIME      = 1.0;
 
         /* ════════════════════════════════════════════════════════
          * STATE
          * ════════════════════════════════════════════════════════ */
-        let state          = 'idle';  // idle | playing | scored
-        let initialBeta    = 90;      // calibrated "upright" beta
-        let currentBeta    = 90;      // latest sensor reading
+        let state          = 'idle';
+        let initialBeta    = 90;
+        let currentBeta    = 90;
 
-        let liquidLevel    = 100;     // 0–100 (% full)
-        let surfaceAngle   = 0;       // current spring-damper angle
-        let surfaceVel     = 0;       // angular velocity
+        let liquidLevel    = 100;
+        let surfaceAngle   = 0;
+        let surfaceVel     = 0;
 
         let hasPouredAny   = false;
         let uprightTimer   = 0;
         let lastTime       = 0;
         let rafId          = null;
-        let sensorsReady   = false;
 
         /* ════════════════════════════════════════════════════════
          * DOM REFERENCES
@@ -531,7 +547,7 @@
             foam:       $('foam'),
             hudTilt:    $('hud-tilt'),
             hudLevel:   $('hud-level'),
-            hudRaw:     $('hud-raw'),
+            debug:      $('debug'),
             pourInd:    $('pour-ind'),
             sensorInfo: $('sensor-info'),
             scoreTitle: $('score-title'),
@@ -546,36 +562,43 @@
          * SENSOR HANDLING
          * ════════════════════════════════════════════════════════
          *
-         * Strategy:
-         *   1. On START (user gesture), request iOS permission if needed
-         *   2. Attach deviceorientation listener
-         *   3. Wait up to 800ms to VERIFY we get actual readings
-         *   4. If no readings arrive, fall back to touch-drag control
-         *   5. Game always starts — never blocks on sensor failure
+         * Strategy (in order of preference):
+         *   1. DeviceOrientationEvent (standard gyro API)
+         *   2. DeviceMotionEvent (derive tilt from accelerometer)
+         *   3. Touch/mouse drag fallback
+         *
+         * Each step waits to VERIFY data actually arrives before
+         * committing. The game always starts regardless.
          */
 
-        let sensorMode = 'none'; // 'gyro' | 'touch' | 'none'
+        let sensorMode      = 'none'; // 'orientation' | 'motion' | 'touch'
         let gotSensorReading = false;
+        let sensorEventCount = 0;
 
         function onOrientation(e) {
             if (e.beta !== null) {
                 currentBeta = e.beta;
                 gotSensorReading = true;
-                sensorsReady = true;
+                sensorEventCount++;
             }
         }
 
-        /**
-         * Try to activate device orientation sensors.
-         * Must be called from a user gesture (for iOS permission).
-         * Returns true once sensors OR touch fallback are ready.
-         */
-        async function initSensors() {
-            // Already working from a previous round
-            if (sensorMode === 'gyro' && gotSensorReading) return true;
-            if (sensorMode === 'touch') return true;
+        function onDeviceMotion(e) {
+            const g = e.accelerationIncludingGravity;
+            if (g && g.y !== null && g.z !== null) {
+                // Derive beta (tilt angle from flat) from accelerometer
+                // Flat face-up = 0°, upright = 90°, flat face-down = 180°
+                currentBeta = Math.atan2(g.y, g.z) * (180 / Math.PI);
+                gotSensorReading = true;
+                sensorEventCount++;
+            }
+        }
 
-            // ── Step 1: iOS 13+ permission request ──
+        async function initSensors() {
+            // Already initialised from a previous round
+            if (sensorMode !== 'none') return true;
+
+            // ── iOS 13+ permission gate ──
             if (typeof DeviceOrientationEvent !== 'undefined' &&
                 typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
@@ -585,48 +608,58 @@
                         return true;
                     }
                 } catch (err) {
-                    enableTouchFallback('Sensor error — using touch controls.');
+                    enableTouchFallback('Permission error — using touch.');
                     return true;
                 }
             }
 
-            // ── Step 2: Attach listener ──
-            if (typeof DeviceOrientationEvent !== 'undefined') {
+            // ── Attempt 1: DeviceOrientationEvent ──
+            if ('DeviceOrientationEvent' in window) {
                 gotSensorReading = false;
+                sensorEventCount = 0;
                 window.addEventListener('deviceorientation', onOrientation);
-
-                // ── Step 3: Wait to verify real data arrives ──
-                await sleep(800);
+                dom.sensorInfo.textContent = 'Trying orientation sensor...';
+                await sleep(600);
 
                 if (gotSensorReading) {
-                    sensorMode = 'gyro';
-                    dom.sensorInfo.textContent = 'Sensors active.';
+                    sensorMode = 'orientation';
+                    dom.sensorInfo.textContent = 'Orientation sensor active (' + sensorEventCount + ' events).';
                     return true;
                 }
-
-                // Sensors exist in API but aren't delivering data
                 window.removeEventListener('deviceorientation', onOrientation);
             }
 
-            // ── Step 4: Fallback ──
-            enableTouchFallback('No sensor data — using touch controls.');
+            // ── Attempt 2: DeviceMotionEvent (accelerometer fallback) ──
+            if ('DeviceMotionEvent' in window) {
+                gotSensorReading = false;
+                sensorEventCount = 0;
+                window.addEventListener('devicemotion', onDeviceMotion);
+                dom.sensorInfo.textContent = 'Trying motion sensor...';
+                await sleep(600);
+
+                if (gotSensorReading) {
+                    sensorMode = 'motion';
+                    dom.sensorInfo.textContent = 'Motion sensor active (' + sensorEventCount + ' events).';
+                    return true;
+                }
+                window.removeEventListener('devicemotion', onDeviceMotion);
+            }
+
+            // ── Attempt 3: Touch/mouse fallback ──
+            enableTouchFallback('No sensors detected — using touch controls.');
             return true;
         }
 
-        /**
-         * Touch/mouse fallback: drag finger up to tilt, down for upright.
-         * Works on any device — desktop or mobile without gyroscope.
-         */
         function enableTouchFallback(msg) {
-            if (sensorMode === 'touch') return; // already set up
+            if (sensorMode === 'touch') return;
             sensorMode = 'touch';
-            sensorsReady = true;
-            dom.sensorInfo.textContent = msg || 'Touch mode active.';
+            dom.sensorInfo.textContent = msg;
 
             const update = (clientY) => {
-                // Bottom of screen = upright (beta 90), top = tilted (beta 20)
+                // Bottom of screen = upright (beta 90), top = max tilt (beta 20)
                 const norm = 1 - (clientY / window.innerHeight);
                 currentBeta = 90 - norm * 70;
+                sensorEventCount++;
             };
 
             document.addEventListener('mousemove', (e) => update(e.clientY));
@@ -634,9 +667,6 @@
                 update(e.touches[0].clientY);
             }, { passive: true });
         }
-
-        // Neutral message on page load — don't probe sensors yet
-        dom.sensorInfo.textContent = 'Tap START to begin.';
 
         /* ════════════════════════════════════════════════════════
          * GAME LIFECYCLE
@@ -646,15 +676,13 @@
             dom.btnStart.disabled = true;
             dom.btnStart.textContent = 'CONNECTING...';
 
-            const ok = await initSensors();
-            if (!ok) return;
+            await initSensors();
 
             dom.btnStart.disabled = false;
             dom.btnStart.textContent = 'START';
 
             // *** CALIBRATION ***
-            // Whatever angle the phone is at RIGHT NOW becomes "upright" (0°).
-            // This is the crucial fix for the 80-85° "not quite 90" problem.
+            // Whatever angle the phone is at RIGHT NOW = "upright" (0°).
             initialBeta = currentBeta;
 
             // Reset state
@@ -667,8 +695,6 @@
             state = 'playing';
             showScreen('game');
             render(false);
-
-            // Request screen wake lock (best-effort, no error if unsupported)
             requestWakeLock();
 
             lastTime = performance.now();
@@ -676,36 +702,27 @@
         }
 
         /**
-         * Main game loop.
-         * Runs every frame via requestAnimationFrame.
+         * Main game loop — runs every frame.
          */
         function tick(now) {
             if (state !== 'playing') return;
 
-            // Delta time in seconds, capped to 50ms to prevent physics explosion
-            // if tab was backgrounded or frame dropped badly
             const dt = Math.min((now - lastTime) / 1000, 0.05);
             lastTime = now;
 
             // ── Calibrated tilt ──
-            // rawTilt is signed: negative = tilting top toward you (drinking),
-            //                    positive = tilting top away from you.
-            // We use Math.abs so pouring works in EITHER direction — the natural
-            // drinking motion (top toward you) decreases beta, which was the
-            // original bug (the old code only responded to increasing beta).
-            const rawTilt = currentBeta - initialBeta;
-            const tilt = clamp(Math.abs(rawTilt), 0, MAX_TILT);
+            // Math.abs makes pouring work in EITHER tilt direction.
+            // The natural drinking motion (tilt top toward you) decreases beta,
+            // while tilting away increases it — both should work.
+            const rawTilt  = currentBeta - initialBeta;
+            const tilt     = clamp(Math.abs(rawTilt), 0, MAX_TILT);
             const tiltSign = rawTilt >= 0 ? 1 : -1;
 
             // ── Spring-Damper physics for liquid surface ──
-            // Target is where the surface WANTS to be (proportional to tilt).
-            // tiltSign preserves the visual wobble direction.
-            const target = tiltSign * (tilt / MAX_TILT) * MAX_SURFACE_ANGLE;
-
-            // Spring pulls surface toward target, damping resists velocity
+            const target       = tiltSign * (tilt / MAX_TILT) * MAX_SURFACE_ANGLE;
             const springForce  =  SPRING_K * (target - surfaceAngle);
             const dampingForce = -DAMPING_C * surfaceVel;
-            const accel = springForce + dampingForce;
+            const accel        = springForce + dampingForce;
 
             surfaceVel   += accel * dt;
             surfaceAngle += surfaceVel * dt;
@@ -715,16 +732,12 @@
             if (tilt > POUR_THRESHOLD && liquidLevel > 0) {
                 isPouring = true;
                 hasPouredAny = true;
-
-                // Flow rate scales linearly from 0 at threshold to MAX at MAX_TILT
                 const pourFraction = (tilt - POUR_THRESHOLD) / (MAX_TILT - POUR_THRESHOLD);
                 const rate = MAX_POUR_RATE * clamp(pourFraction, 0, 1);
                 liquidLevel = Math.max(0, liquidLevel - rate * dt);
             }
 
             // ── Auto-stop detection ──
-            // If the user has poured at least some, and returns to upright
-            // for SETTLE_TIME seconds, the round ends automatically.
             if (hasPouredAny && tilt < SETTLE_THRESHOLD) {
                 uprightTimer += dt;
                 if (uprightTimer >= SETTLE_TIME) {
@@ -738,10 +751,17 @@
             // ── Render ──
             render(isPouring);
 
-            // Update HUD
+            // ── HUD ──
             dom.hudTilt.textContent  = tilt.toFixed(0);
             dom.hudLevel.textContent = liquidLevel.toFixed(1);
-            dom.hudRaw.textContent   = currentBeta.toFixed(0);
+
+            // ── Debug panel ──
+            dom.debug.textContent =
+                'mode: ' + sensorMode +
+                ' | beta: ' + currentBeta.toFixed(1) +
+                ' | init: ' + initialBeta.toFixed(1) +
+                ' | raw: ' + rawTilt.toFixed(1) +
+                ' | events: ' + sensorEventCount;
 
             rafId = requestAnimationFrame(tick);
         }
@@ -753,7 +773,6 @@
             const diff     = Math.abs(liquidLevel - TARGET_LEVEL);
             const accuracy = Math.max(0, 100 - diff * 2.5);
 
-            // Title & subtitle based on performance
             let title, sub;
             if (diff <= 0.5)       { title = 'PERFECT SPLIT!';  sub = 'Absolutely nailed it.'; }
             else if (diff <= 2)    { title = 'INCREDIBLE!';     sub = 'Surgeon-level precision.'; }
@@ -769,14 +788,11 @@
             dom.sLevel.textContent     = liquidLevel.toFixed(1) + '%';
             dom.sAccuracy.textContent  = accuracy.toFixed(0) + '%';
 
-            // Accuracy bar colour
             dom.accFill.className = 'accuracy-fill ' +
                 (accuracy >= 90 ? 'green' : accuracy >= 50 ? 'gold' : 'red');
 
-            // Mini glass preview
             dom.miniLiquid.style.height = liquidLevel + '%';
 
-            // Animate accuracy bar (set to 0 first, then expand)
             dom.accFill.style.width = '0%';
             showScreen('score');
             requestAnimationFrame(() => {
@@ -796,16 +812,13 @@
          * ════════════════════════════════════════════════════════ */
 
         function render(isPouring) {
-            // Liquid div height = visible portion + bottom padding
             const px = (liquidLevel / 100) * GLASS_HEIGHT + LIQUID_BOTTOM_PAD;
             dom.liquid.style.height    = px + 'px';
             dom.liquid.style.transform = 'rotate(' + surfaceAngle.toFixed(2) + 'deg)';
 
-            // Foam thins out below 25% fill
             const foamH = FOAM_HEIGHT_MAX * clamp(liquidLevel / 25, 0, 1);
             dom.foam.style.height = foamH + 'px';
 
-            // Pour indicator
             if (isPouring) {
                 dom.pourInd.classList.add('visible');
             } else {
@@ -848,12 +861,11 @@
         });
         dom.btnRetry.addEventListener('click', resetGame);
 
-        // Prevent pull-to-refresh during gyro play (but allow touch fallback moves)
+        // Prevent pull-to-refresh during gyro play (but allow touch fallback)
         document.addEventListener('touchmove', (e) => {
-            if (state === 'playing' && sensorMode === 'gyro') e.preventDefault();
+            if (state === 'playing' && sensorMode !== 'touch') e.preventDefault();
         }, { passive: false });
 
-        // Prevent double-tap zoom
         document.addEventListener('dblclick', (e) => e.preventDefault());
 
     })();
