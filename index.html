@@ -389,7 +389,7 @@
 <body>
 
     <!-- VERSION FOOTER — always visible -->
-    <div class="version" id="version">v0.4</div>
+    <div class="version" id="version">v0.5</div>
 
     <!-- ═══════════════════════════════════════════
          START SCREEN
@@ -401,7 +401,7 @@
             <p><span>1.</span> Hold your phone upright like a pint</p>
             <p><span>2.</span> Tap START, then tilt to "drink"</p>
             <p><span>3.</span> Return upright at the gold line</p>
-            <p style="font-size:0.8rem;color:#605848;margin-top:8px">No gyroscope? Touch mode activates automatically.</p>
+            <p style="font-size:0.75rem;color:#605848;margin-top:8px">No tilt? Check Chrome Settings > Site Settings > Motion sensors. Or drag up/down in touch mode.</p>
         </div>
         <button id="btn-start" class="btn btn-primary">START</button>
         <div class="sensor-info" id="sensor-info">Tap START to begin.</div>
@@ -471,7 +471,7 @@
     (() => {
         'use strict';
 
-        const VERSION = 'v0.4';
+        const VERSION = 'v0.5';
 
         /* ════════════════════════════════════════════════════════
          * PHYSICS CONSTANTS — Tweak these to change the "feel"
@@ -565,15 +565,18 @@
          * Strategy (in order of preference):
          *   1. DeviceOrientationEvent (standard gyro API)
          *   2. DeviceMotionEvent (derive tilt from accelerometer)
-         *   3. Touch/mouse drag fallback
+         *   3. Generic Sensor API — Accelerometer / GravitySensor
+         *      (newer Chrome API, sometimes works when 1 & 2 don't)
+         *   4. Touch/mouse drag fallback
          *
          * Each step waits to VERIFY data actually arrives before
          * committing. The game always starts regardless.
          */
 
-        let sensorMode      = 'none'; // 'orientation' | 'motion' | 'touch'
+        let sensorMode      = 'none'; // 'orientation'|'motion'|'generic'|'touch'
         let gotSensorReading = false;
         let sensorEventCount = 0;
+        let triedApis        = [];     // track which APIs were attempted
 
         function onOrientation(e) {
             if (e.beta !== null) {
@@ -586,8 +589,6 @@
         function onDeviceMotion(e) {
             const g = e.accelerationIncludingGravity;
             if (g && g.y !== null && g.z !== null) {
-                // Derive beta (tilt angle from flat) from accelerometer
-                // Flat face-up = 0°, upright = 90°, flat face-down = 180°
                 currentBeta = Math.atan2(g.y, g.z) * (180 / Math.PI);
                 gotSensorReading = true;
                 sensorEventCount++;
@@ -595,7 +596,6 @@
         }
 
         async function initSensors() {
-            // Already initialised from a previous round
             if (sensorMode !== 'none') return true;
 
             // ── iOS 13+ permission gate ──
@@ -604,17 +604,18 @@
                 try {
                     const perm = await DeviceOrientationEvent.requestPermission();
                     if (perm !== 'granted') {
-                        enableTouchFallback('Motion permission denied — using touch.');
+                        enableTouchFallback('Motion permission denied — drag up/down to tilt.');
                         return true;
                     }
                 } catch (err) {
-                    enableTouchFallback('Permission error — using touch.');
+                    enableTouchFallback('Permission error — drag up/down to tilt.');
                     return true;
                 }
             }
 
             // ── Attempt 1: DeviceOrientationEvent ──
             if ('DeviceOrientationEvent' in window) {
+                triedApis.push('orientation');
                 gotSensorReading = false;
                 sensorEventCount = 0;
                 window.addEventListener('deviceorientation', onOrientation);
@@ -623,14 +624,15 @@
 
                 if (gotSensorReading) {
                     sensorMode = 'orientation';
-                    dom.sensorInfo.textContent = 'Orientation sensor active (' + sensorEventCount + ' events).';
+                    dom.sensorInfo.textContent = 'Gyro active.';
                     return true;
                 }
                 window.removeEventListener('deviceorientation', onOrientation);
             }
 
-            // ── Attempt 2: DeviceMotionEvent (accelerometer fallback) ──
+            // ── Attempt 2: DeviceMotionEvent ──
             if ('DeviceMotionEvent' in window) {
+                triedApis.push('motion');
                 gotSensorReading = false;
                 sensorEventCount = 0;
                 window.addEventListener('devicemotion', onDeviceMotion);
@@ -639,15 +641,77 @@
 
                 if (gotSensorReading) {
                     sensorMode = 'motion';
-                    dom.sensorInfo.textContent = 'Motion sensor active (' + sensorEventCount + ' events).';
+                    dom.sensorInfo.textContent = 'Accelerometer active.';
                     return true;
                 }
                 window.removeEventListener('devicemotion', onDeviceMotion);
             }
 
-            // ── Attempt 3: Touch/mouse fallback ──
-            enableTouchFallback('No sensors detected — using touch controls.');
+            // ── Attempt 3: Generic Sensor API (Chrome 67+) ──
+            // Some Android Chrome versions block the old Event APIs but
+            // allow the newer Generic Sensor API.
+            const genericOk = await tryGenericSensor();
+            if (genericOk) return true;
+
+            // ── Attempt 4: Touch/mouse fallback ──
+            const msg = 'Sensors blocked by browser. Drag up/down to play.\n' +
+                        'To enable tilt: Chrome > Settings > Site Settings > Motion sensors.';
+            enableTouchFallback(msg);
             return true;
+        }
+
+        /**
+         * Try the W3C Generic Sensor API (Accelerometer / GravitySensor).
+         * Available in Chrome 67+ on Android.
+         */
+        async function tryGenericSensor() {
+            // Try GravitySensor first (cleaner signal), then Accelerometer
+            const sensorClasses = [];
+            if (typeof GravitySensor !== 'undefined') sensorClasses.push(GravitySensor);
+            if (typeof Accelerometer !== 'undefined') sensorClasses.push(Accelerometer);
+
+            for (const SensorClass of sensorClasses) {
+                try {
+                    triedApis.push(SensorClass.name);
+                    gotSensorReading = false;
+                    sensorEventCount = 0;
+
+                    const sensor = new SensorClass({ frequency: 60 });
+                    const sensorName = SensorClass.name;
+
+                    sensor.addEventListener('reading', () => {
+                        // GravitySensor: x/y/z represent gravity vector
+                        // Accelerometer: x/y/z include gravity when stationary
+                        // Both give us what we need for tilt
+                        const y = sensor.y;
+                        const z = sensor.z;
+                        if (y !== null && z !== null) {
+                            currentBeta = Math.atan2(y, z) * (180 / Math.PI);
+                            gotSensorReading = true;
+                            sensorEventCount++;
+                        }
+                    });
+
+                    sensor.addEventListener('error', () => {
+                        // Permission denied or not available
+                    });
+
+                    sensor.start();
+                    dom.sensorInfo.textContent = 'Trying ' + sensorName + '...';
+                    await sleep(600);
+
+                    if (gotSensorReading) {
+                        sensorMode = 'generic';
+                        dom.sensorInfo.textContent = sensorName + ' active.';
+                        return true;
+                    }
+
+                    sensor.stop();
+                } catch (e) {
+                    // This sensor class not available, try next
+                }
+            }
+            return false;
         }
 
         function enableTouchFallback(msg) {
@@ -656,7 +720,6 @@
             dom.sensorInfo.textContent = msg;
 
             const update = (clientY) => {
-                // Bottom of screen = upright (beta 90), top = max tilt (beta 20)
                 const norm = 1 - (clientY / window.innerHeight);
                 currentBeta = 90 - norm * 70;
                 sensorEventCount++;
@@ -761,7 +824,8 @@
                 ' | beta: ' + currentBeta.toFixed(1) +
                 ' | init: ' + initialBeta.toFixed(1) +
                 ' | raw: ' + rawTilt.toFixed(1) +
-                ' | events: ' + sensorEventCount;
+                ' | ev: ' + sensorEventCount +
+                ' | tried: ' + triedApis.join(',');
 
             rafId = requestAnimationFrame(tick);
         }
