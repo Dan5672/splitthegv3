@@ -513,7 +513,7 @@
 </head>
 <body>
 
-    <div class="version">v0.9</div>
+    <div class="version">v1.0</div>
 
     <!-- ═══════════════════════════════════════════
          START SCREEN
@@ -570,7 +570,7 @@
         <h2 id="score-title" class="score-title"></h2>
         <div id="score-subtitle" class="score-subtitle"></div>
         <div id="granny" class="granny">
-            <div class="granny-char">👵</div>
+            <div class="granny-char">👵🏻☘️</div>
             <div class="granny-bubble" id="granny-bubble"></div>
         </div>
         <div class="mini-glass-wrap">
@@ -608,7 +608,7 @@
     (() => {
         'use strict';
 
-        const VERSION = 'v0.9';
+        const VERSION = 'v1.0';
 
         /* ════════════════════════════════════════════════════════
          * PHYSICS CONSTANTS — Tweak these to change the "feel"
@@ -933,8 +933,8 @@
                                      title = 'Drink More!';      sub = 'Didn\'t commit to the sip.'; }
             else                   { title = 'Too Greedy!';      sub = 'Left the G behind.'; }
 
-            /* Granny insult for truly awful pours */
-            if (accuracy <= 10) {
+            /* Granny insult when they barely drank (10% or less) */
+            if (liquidLevel >= 90) {
                 title = 'Mother of God!';
                 sub = '';
                 const insult = GRANNY_INSULTS[Math.floor(Math.random() * GRANNY_INSULTS.length)];
