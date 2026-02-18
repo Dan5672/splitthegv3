@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Split the G</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -41,9 +44,7 @@
             pointer-events: auto;
         }
 
-        /* ════════════════════════════════════════
-           VERSION FOOTER (all screens)
-           ════════════════════════════════════════ */
+        /* VERSION FOOTER */
         .version {
             position: fixed;
             bottom: 6px;
@@ -58,8 +59,9 @@
            START SCREEN
            ════════════════════════════════════════ */
         .title {
+            font-family: 'IM Fell English SC', serif;
             font-size: 2.5rem;
-            font-weight: 800;
+            font-weight: 400;
             color: #c8a84e;
             letter-spacing: 0.04em;
         }
@@ -87,6 +89,7 @@
             color: #706850;
             text-align: center;
             min-height: 2.5em;
+            white-space: pre-line;
         }
 
         /* ════════════════════════════════════════
@@ -141,7 +144,6 @@
         }
         .hud-val { color: #c8a84e; font-weight: 600; }
 
-        /* Debug panel — visible during gameplay for diagnostics */
         .debug {
             width: 100%;
             padding: 6px 12px;
@@ -178,24 +180,52 @@
             min-height: 0;
         }
 
-        /* ─── THE GLASS ─── */
+        /* ─── THE PINT GLASS (Guinness tulip shape) ─── */
         .glass-wrap {
             position: relative;
             width: 150px;
             height: 320px;
         }
 
+        /* SVG outline sits on top of everything */
+        .glass-svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 15;
+            pointer-events: none;
+        }
+        .glass-path {
+            fill: rgba(255,255,255,0.02);
+            stroke: rgba(255,255,255,0.18);
+            stroke-width: 2;
+            stroke-linejoin: round;
+        }
+
+        /* Glass interior — clipped to pint shape */
         .glass {
             position: absolute;
             inset: 0;
             overflow: hidden;
-            border-radius: 0 0 10px 10px;
-            border: 2px solid rgba(255,255,255,0.18);
-            border-top: none;
-            background: rgba(255,255,255,0.02);
+            /*
+             * Pint glass taper: wide at rim, narrow at base.
+             * Points computed from a cubic Bezier curve to approximate
+             * the smooth sides of a Guinness tulip glass.
+             */
+            clip-path: polygon(
+                4.7% 0.6%, 95.3% 0.6%,
+                94.7% 8.3%, 93.6% 16.6%, 92.3% 25.7%, 90.9% 35.1%,
+                89.3% 45.0%, 87.4% 55.2%, 85.5% 65.5%, 83.3% 76.0%,
+                81.3% 86.6%, 78.7% 96.9%,
+                76.7% 99.1%, 73.3% 100%, 50% 100%, 26.7% 100%, 23.3% 99.1%,
+                21.3% 96.9%, 18.7% 86.6%, 16.7% 76.0%, 14.5% 65.5%,
+                12.6% 55.2%, 10.7% 45.0%, 9.1% 35.1%, 7.7% 25.7%,
+                6.4% 16.6%, 5.3% 8.3%
+            );
         }
 
-        /* Glass shine / reflection */
+        /* Glass shine / reflection — clipped with the glass */
         .glass::after {
             content: '';
             position: absolute;
@@ -204,8 +234,8 @@
             width: 12%;
             height: 100%;
             background: linear-gradient(180deg,
-                rgba(255,255,255,0.07) 0%,
-                rgba(255,255,255,0.02) 50%,
+                rgba(255,255,255,0.08) 0%,
+                rgba(255,255,255,0.03) 50%,
                 transparent 80%
             );
             pointer-events: none;
@@ -240,7 +270,7 @@
             z-index: 2;
         }
 
-        /* Subtle "carbonation" texture on the stout */
+        /* Carbonation texture */
         .liquid::after {
             content: '';
             position: absolute;
@@ -260,37 +290,41 @@
             pointer-events: none;
         }
 
-        /* ─── G LINE ─── */
-        .g-line {
+        /* ─── "SPLIT THE G" TEXT (replaces gold line) ─── */
+        .g-text {
             position: absolute;
             bottom: 60%;
-            left: -4px;
-            right: -4px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-family: 'IM Fell English SC', serif;
+            color: rgba(200, 168, 78, 0.55);
             z-index: 25;
             pointer-events: none;
+            line-height: 1;
+            text-shadow:
+                0 0 12px rgba(200, 168, 78, 0.15),
+                0 1px 3px rgba(0, 0, 0, 0.6);
         }
-        .g-line-bar {
-            width: 100%;
-            height: 2px;
-            background: #c8a84e;
-            box-shadow: 0 0 8px rgba(200,168,78,0.35);
-        }
-        .g-label {
-            position: absolute;
-            right: -2px;
-            top: -18px;
+        .g-line1 {
+            display: block;
             font-size: 13px;
-            font-weight: 800;
-            color: #c8a84e;
-            text-shadow: 0 0 6px rgba(200,168,78,0.3);
+            letter-spacing: 0.15em;
+            margin-bottom: 2px;
+        }
+        .g-letter {
+            display: block;
+            font-size: 54px;
+            line-height: 0.8;
         }
 
         /* ════════════════════════════════════════
            SCORE SCREEN
            ════════════════════════════════════════ */
         .score-title {
+            font-family: 'IM Fell English SC', serif;
             font-size: 2rem;
-            font-weight: 800;
+            font-weight: 400;
             color: #c8a84e;
             margin-bottom: 8px;
             text-align: center;
@@ -342,7 +376,7 @@
         .accuracy-fill.red { background: #a84e4e; }
 
         /* ════════════════════════════════════════
-           MINI GLASS (Score screen preview)
+           MINI GLASS (Score screen)
            ════════════════════════════════════════ */
         .mini-glass-wrap {
             position: relative;
@@ -354,10 +388,31 @@
             position: absolute;
             inset: 0;
             overflow: hidden;
-            border-radius: 0 0 5px 5px;
-            border: 1.5px solid rgba(255,255,255,0.15);
-            border-top: none;
             background: rgba(255,255,255,0.02);
+            clip-path: polygon(
+                4.7% 0.6%, 95.3% 0.6%,
+                94.7% 8.3%, 93.6% 16.6%, 92.3% 25.7%, 90.9% 35.1%,
+                89.3% 45.0%, 87.4% 55.2%, 85.5% 65.5%, 83.3% 76.0%,
+                81.3% 86.6%, 78.7% 96.9%,
+                76.7% 99.1%, 73.3% 100%, 50% 100%, 26.7% 100%, 23.3% 99.1%,
+                21.3% 96.9%, 18.7% 86.6%, 16.7% 76.0%, 14.5% 65.5%,
+                12.6% 55.2%, 10.7% 45.0%, 9.1% 35.1%, 7.7% 25.7%,
+                6.4% 16.6%, 5.3% 8.3%
+            );
+        }
+        .mini-glass-svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .mini-glass-path {
+            fill: none;
+            stroke: rgba(255,255,255,0.15);
+            stroke-width: 2;
+            stroke-linejoin: round;
         }
         .mini-liquid {
             position: absolute;
@@ -375,33 +430,36 @@
             height: 10px;
             background: linear-gradient(180deg, #f5edd6, #1a1a1a);
         }
-        .mini-g-line {
+        .mini-g-text {
             position: absolute;
             bottom: 60%;
-            left: -3px;
-            right: -3px;
-            height: 1.5px;
-            background: #c8a84e;
-            z-index: 10;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-family: 'IM Fell English SC', serif;
+            font-size: 16px;
+            color: rgba(200,168,78,0.4);
+            z-index: 15;
+            pointer-events: none;
+            line-height: 0.85;
         }
     </style>
 </head>
 <body>
 
-    <!-- VERSION FOOTER — always visible -->
-    <div class="version" id="version">v0.5</div>
+    <div class="version">v0.6</div>
 
     <!-- ═══════════════════════════════════════════
          START SCREEN
          ═══════════════════════════════════════════ -->
     <div id="screen-start" class="screen active">
-        <h1 class="title">SPLIT THE G</h1>
+        <h1 class="title">Split the G</h1>
         <div class="subtitle">The Pint Challenge</div>
         <div class="instructions">
             <p><span>1.</span> Hold your phone upright like a pint</p>
             <p><span>2.</span> Tap START, then tilt to "drink"</p>
-            <p><span>3.</span> Return upright at the gold line</p>
-            <p style="font-size:0.75rem;color:#605848;margin-top:8px">No tilt? Check Chrome Settings > Site Settings > Motion sensors. Or drag up/down in touch mode.</p>
+            <p><span>3.</span> Return upright at the G</p>
+            <p style="font-size:0.75rem;color:#605848;margin-top:8px">No tilt? Check Chrome > Site Settings > Motion sensors.</p>
         </div>
         <button id="btn-start" class="btn btn-primary">START</button>
         <div class="sensor-info" id="sensor-info">Tap START to begin.</div>
@@ -419,14 +477,20 @@
         <div class="pour-indicator" id="pour-ind">POURING</div>
         <div class="glass-area">
             <div class="glass-wrap">
+                <!-- SVG glass outline -->
+                <svg class="glass-svg" viewBox="0 0 150 320">
+                    <path class="glass-path" d="M 7,2 L 143,2 C 140,80 130,200 118,310 Q 110,320 75,320 Q 40,320 32,310 C 20,200 10,80 7,2 Z"/>
+                </svg>
+                <!-- Clipped interior -->
                 <div class="glass">
                     <div id="liquid" class="liquid">
                         <div id="foam" class="foam"></div>
                     </div>
                 </div>
-                <div class="g-line">
-                    <div class="g-line-bar"></div>
-                    <span class="g-label">G</span>
+                <!-- "Split the G" etched on the glass -->
+                <div class="g-text">
+                    <span class="g-line1">Split the</span>
+                    <span class="g-letter">G</span>
                 </div>
             </div>
         </div>
@@ -440,12 +504,15 @@
         <h2 id="score-title" class="score-title"></h2>
         <div id="score-subtitle" class="score-subtitle"></div>
         <div class="mini-glass-wrap">
+            <svg class="mini-glass-svg" viewBox="0 0 60 130">
+                <path class="mini-glass-path" d="M 3,1 L 57,1 C 56,32 52,82 47,126 Q 44,130 30,130 Q 16,130 13,126 C 8,82 4,32 3,1 Z"/>
+            </svg>
             <div class="mini-glass">
                 <div id="mini-liquid" class="mini-liquid">
                     <div class="mini-foam"></div>
                 </div>
             </div>
-            <div class="mini-g-line"></div>
+            <div class="mini-g-text">G</div>
         </div>
         <div class="score-details">
             <div class="score-row">
@@ -471,7 +538,7 @@
     (() => {
         'use strict';
 
-        const VERSION = 'v0.5';
+        const VERSION = 'v0.6';
 
         /* ════════════════════════════════════════════════════════
          * PHYSICS CONSTANTS — Tweak these to change the "feel"
@@ -479,16 +546,10 @@
          *
          * SPRING-DAMPER MODEL (Simple Harmonic Motion)
          * ────────────────────────────────────────────
-         * The liquid surface angle follows a spring-damper system:
-         *
          *   acceleration = SPRING_K * (target - current) - DAMPING_C * velocity
          *
-         * Key derived values:
-         *   Natural frequency:  w0 = sqrt(K)   ≈ 12.2 rad/s  (~2 Hz)
-         *   Damping ratio:      z  = C/(2*w0)  ≈ 0.74
-         *
-         *   z < 1 = underdamped (wobbles)  |  z = 1 = critical  |  z > 1 = overdamped
-         *   Current (z ≈ 0.74) = subtle heavy wobble, like a thick stout.
+         *   Natural frequency:  w0 = sqrt(K)   ≈ 12.2 rad/s (~2 Hz)
+         *   Damping ratio:      z  = C/(2*w0)  ≈ 0.74  (slightly underdamped)
          *
          * TO MAKE IT HEAVIER:  decrease K    TO MAKE IT WOBBLIER: decrease C
          * TO MAKE IT SNAPPIER: increase K    TO KILL WOBBLE:      increase C past ~24.5
@@ -497,9 +558,9 @@
         const DAMPING_C = 18;
 
         /* POURING BEHAVIOUR */
-        const POUR_THRESHOLD = 15;  // degrees before liquid starts flowing
-        const MAX_POUR_RATE  = 30;  // % of glass per second at max tilt
-        const MAX_TILT       = 70;  // degrees — tilt ceiling for pour rate
+        const POUR_THRESHOLD = 15;
+        const MAX_POUR_RATE  = 30;
+        const MAX_TILT       = 70;
 
         /* VISUAL LIMITS */
         const MAX_SURFACE_ANGLE = 15;
@@ -562,21 +623,17 @@
          * SENSOR HANDLING
          * ════════════════════════════════════════════════════════
          *
-         * Strategy (in order of preference):
-         *   1. DeviceOrientationEvent (standard gyro API)
-         *   2. DeviceMotionEvent (derive tilt from accelerometer)
-         *   3. Generic Sensor API — Accelerometer / GravitySensor
-         *      (newer Chrome API, sometimes works when 1 & 2 don't)
+         * Strategy (in order):
+         *   1. DeviceOrientationEvent
+         *   2. DeviceMotionEvent (accelerometer)
+         *   3. Generic Sensor API (GravitySensor / Accelerometer)
          *   4. Touch/mouse drag fallback
-         *
-         * Each step waits to VERIFY data actually arrives before
-         * committing. The game always starts regardless.
          */
 
-        let sensorMode      = 'none'; // 'orientation'|'motion'|'generic'|'touch'
+        let sensorMode      = 'none';
         let gotSensorReading = false;
         let sensorEventCount = 0;
-        let triedApis        = [];     // track which APIs were attempted
+        let triedApis        = [];
 
         function onOrientation(e) {
             if (e.beta !== null) {
@@ -598,7 +655,6 @@
         async function initSensors() {
             if (sensorMode !== 'none') return true;
 
-            // ── iOS 13+ permission gate ──
             if (typeof DeviceOrientationEvent !== 'undefined' &&
                 typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
@@ -613,7 +669,6 @@
                 }
             }
 
-            // ── Attempt 1: DeviceOrientationEvent ──
             if ('DeviceOrientationEvent' in window) {
                 triedApis.push('orientation');
                 gotSensorReading = false;
@@ -621,7 +676,6 @@
                 window.addEventListener('deviceorientation', onOrientation);
                 dom.sensorInfo.textContent = 'Trying orientation sensor...';
                 await sleep(600);
-
                 if (gotSensorReading) {
                     sensorMode = 'orientation';
                     dom.sensorInfo.textContent = 'Gyro active.';
@@ -630,7 +684,6 @@
                 window.removeEventListener('deviceorientation', onOrientation);
             }
 
-            // ── Attempt 2: DeviceMotionEvent ──
             if ('DeviceMotionEvent' in window) {
                 triedApis.push('motion');
                 gotSensorReading = false;
@@ -638,7 +691,6 @@
                 window.addEventListener('devicemotion', onDeviceMotion);
                 dom.sensorInfo.textContent = 'Trying motion sensor...';
                 await sleep(600);
-
                 if (gotSensorReading) {
                     sensorMode = 'motion';
                     dom.sensorInfo.textContent = 'Accelerometer active.';
@@ -647,25 +699,14 @@
                 window.removeEventListener('devicemotion', onDeviceMotion);
             }
 
-            // ── Attempt 3: Generic Sensor API (Chrome 67+) ──
-            // Some Android Chrome versions block the old Event APIs but
-            // allow the newer Generic Sensor API.
             const genericOk = await tryGenericSensor();
             if (genericOk) return true;
 
-            // ── Attempt 4: Touch/mouse fallback ──
-            const msg = 'Sensors blocked by browser. Drag up/down to play.\n' +
-                        'To enable tilt: Chrome > Settings > Site Settings > Motion sensors.';
-            enableTouchFallback(msg);
+            enableTouchFallback('Sensors blocked by browser. Drag up/down to play.\nTo enable tilt: Chrome > Settings > Site Settings > Motion sensors.');
             return true;
         }
 
-        /**
-         * Try the W3C Generic Sensor API (Accelerometer / GravitySensor).
-         * Available in Chrome 67+ on Android.
-         */
         async function tryGenericSensor() {
-            // Try GravitySensor first (cleaner signal), then Accelerometer
             const sensorClasses = [];
             if (typeof GravitySensor !== 'undefined') sensorClasses.push(GravitySensor);
             if (typeof Accelerometer !== 'undefined') sensorClasses.push(Accelerometer);
@@ -675,41 +716,25 @@
                     triedApis.push(SensorClass.name);
                     gotSensorReading = false;
                     sensorEventCount = 0;
-
                     const sensor = new SensorClass({ frequency: 60 });
-                    const sensorName = SensorClass.name;
-
                     sensor.addEventListener('reading', () => {
-                        // GravitySensor: x/y/z represent gravity vector
-                        // Accelerometer: x/y/z include gravity when stationary
-                        // Both give us what we need for tilt
-                        const y = sensor.y;
-                        const z = sensor.z;
-                        if (y !== null && z !== null) {
-                            currentBeta = Math.atan2(y, z) * (180 / Math.PI);
+                        if (sensor.y !== null && sensor.z !== null) {
+                            currentBeta = Math.atan2(sensor.y, sensor.z) * (180 / Math.PI);
                             gotSensorReading = true;
                             sensorEventCount++;
                         }
                     });
-
-                    sensor.addEventListener('error', () => {
-                        // Permission denied or not available
-                    });
-
+                    sensor.addEventListener('error', () => {});
                     sensor.start();
-                    dom.sensorInfo.textContent = 'Trying ' + sensorName + '...';
+                    dom.sensorInfo.textContent = 'Trying ' + SensorClass.name + '...';
                     await sleep(600);
-
                     if (gotSensorReading) {
                         sensorMode = 'generic';
-                        dom.sensorInfo.textContent = sensorName + ' active.';
+                        dom.sensorInfo.textContent = SensorClass.name + ' active.';
                         return true;
                     }
-
                     sensor.stop();
-                } catch (e) {
-                    // This sensor class not available, try next
-                }
+                } catch (e) {}
             }
             return false;
         }
@@ -718,13 +743,11 @@
             if (sensorMode === 'touch') return;
             sensorMode = 'touch';
             dom.sensorInfo.textContent = msg;
-
             const update = (clientY) => {
                 const norm = 1 - (clientY / window.innerHeight);
                 currentBeta = 90 - norm * 70;
                 sensorEventCount++;
             };
-
             document.addEventListener('mousemove', (e) => update(e.clientY));
             document.addEventListener('touchmove', (e) => {
                 update(e.touches[0].clientY);
@@ -738,17 +761,12 @@
         async function startGame() {
             dom.btnStart.disabled = true;
             dom.btnStart.textContent = 'CONNECTING...';
-
             await initSensors();
-
             dom.btnStart.disabled = false;
             dom.btnStart.textContent = 'START';
 
-            // *** CALIBRATION ***
-            // Whatever angle the phone is at RIGHT NOW = "upright" (0°).
             initialBeta = currentBeta;
 
-            // Reset state
             liquidLevel  = 100;
             surfaceAngle = 0;
             surfaceVel   = 0;
@@ -764,24 +782,16 @@
             rafId = requestAnimationFrame(tick);
         }
 
-        /**
-         * Main game loop — runs every frame.
-         */
         function tick(now) {
             if (state !== 'playing') return;
 
             const dt = Math.min((now - lastTime) / 1000, 0.05);
             lastTime = now;
 
-            // ── Calibrated tilt ──
-            // Math.abs makes pouring work in EITHER tilt direction.
-            // The natural drinking motion (tilt top toward you) decreases beta,
-            // while tilting away increases it — both should work.
             const rawTilt  = currentBeta - initialBeta;
             const tilt     = clamp(Math.abs(rawTilt), 0, MAX_TILT);
             const tiltSign = rawTilt >= 0 ? 1 : -1;
 
-            // ── Spring-Damper physics for liquid surface ──
             const target       = tiltSign * (tilt / MAX_TILT) * MAX_SURFACE_ANGLE;
             const springForce  =  SPRING_K * (target - surfaceAngle);
             const dampingForce = -DAMPING_C * surfaceVel;
@@ -790,7 +800,6 @@
             surfaceVel   += accel * dt;
             surfaceAngle += surfaceVel * dt;
 
-            // ── Pouring ──
             let isPouring = false;
             if (tilt > POUR_THRESHOLD && liquidLevel > 0) {
                 isPouring = true;
@@ -800,7 +809,6 @@
                 liquidLevel = Math.max(0, liquidLevel - rate * dt);
             }
 
-            // ── Auto-stop detection ──
             if (hasPouredAny && tilt < SETTLE_THRESHOLD) {
                 uprightTimer += dt;
                 if (uprightTimer >= SETTLE_TIME) {
@@ -811,14 +819,10 @@
                 uprightTimer = 0;
             }
 
-            // ── Render ──
             render(isPouring);
 
-            // ── HUD ──
             dom.hudTilt.textContent  = tilt.toFixed(0);
             dom.hudLevel.textContent = liquidLevel.toFixed(1);
-
-            // ── Debug panel ──
             dom.debug.textContent =
                 'mode: ' + sensorMode +
                 ' | beta: ' + currentBeta.toFixed(1) +
@@ -838,14 +842,14 @@
             const accuracy = Math.max(0, 100 - diff * 2.5);
 
             let title, sub;
-            if (diff <= 0.5)       { title = 'PERFECT SPLIT!';  sub = 'Absolutely nailed it.'; }
-            else if (diff <= 2)    { title = 'INCREDIBLE!';     sub = 'Surgeon-level precision.'; }
-            else if (diff <= 5)    { title = 'GREAT SPLIT!';    sub = 'Proper pub skills.'; }
-            else if (diff <= 10)   { title = 'GOOD EFFORT';     sub = 'Getting there.'; }
-            else if (diff <= 20)   { title = 'NOT BAD';         sub = 'Room for improvement.'; }
+            if (diff <= 0.5)       { title = 'Perfect Split!';   sub = 'Absolutely nailed it.'; }
+            else if (diff <= 2)    { title = 'Incredible!';      sub = 'Surgeon-level precision.'; }
+            else if (diff <= 5)    { title = 'Great Split!';     sub = 'Proper pub skills.'; }
+            else if (diff <= 10)   { title = 'Good Effort';      sub = 'Getting there.'; }
+            else if (diff <= 20)   { title = 'Not Bad';          sub = 'Room for improvement.'; }
             else if (liquidLevel > TARGET_LEVEL) {
-                                     title = 'DRINK MORE!';     sub = 'Didn\'t commit to the sip.'; }
-            else                   { title = 'TOO GREEDY!';     sub = 'Left the G behind.'; }
+                                     title = 'Drink More!';      sub = 'Didn\'t commit to the sip.'; }
+            else                   { title = 'Too Greedy!';      sub = 'Left the G behind.'; }
 
             dom.scoreTitle.textContent = title;
             dom.scoreSub.textContent   = sub;
@@ -912,7 +916,7 @@
                 if ('wakeLock' in navigator) {
                     await navigator.wakeLock.request('screen');
                 }
-            } catch (_) { /* best effort */ }
+            } catch (_) {}
         }
 
         /* ════════════════════════════════════════════════════════
@@ -925,7 +929,6 @@
         });
         dom.btnRetry.addEventListener('click', resetGame);
 
-        // Prevent pull-to-refresh during gyro play (but allow touch fallback)
         document.addEventListener('touchmove', (e) => {
             if (state === 'playing' && sensorMode !== 'touch') e.preventDefault();
         }, { passive: false });
