@@ -369,8 +369,9 @@
         <div class="subtitle">The Pint Challenge</div>
         <div class="instructions">
             <p><span>1.</span> Hold your phone upright like a pint</p>
-            <p><span>2.</span> Tap START, then tilt forward to drink</p>
+            <p><span>2.</span> Tap START, then tilt to "drink"</p>
             <p><span>3.</span> Return upright at the gold line</p>
+            <p style="font-size:0.8rem;color:#605848;margin-top:8px">No gyroscope? Touch mode activates automatically — drag up to tilt.</p>
         </div>
         <button id="btn-start" class="btn btn-primary">START</button>
         <div class="sensor-info" id="sensor-info">Checking sensors...</div>
@@ -543,101 +544,113 @@
 
         /* ════════════════════════════════════════════════════════
          * SENSOR HANDLING
-         * ════════════════════════════════════════════════════════ */
+         * ════════════════════════════════════════════════════════
+         *
+         * Strategy:
+         *   1. On START (user gesture), request iOS permission if needed
+         *   2. Attach deviceorientation listener
+         *   3. Wait up to 800ms to VERIFY we get actual readings
+         *   4. If no readings arrive, fall back to touch-drag control
+         *   5. Game always starts — never blocks on sensor failure
+         */
+
+        let sensorMode = 'none'; // 'gyro' | 'touch' | 'none'
+        let gotSensorReading = false;
+
+        function onOrientation(e) {
+            if (e.beta !== null) {
+                currentBeta = e.beta;
+                gotSensorReading = true;
+                sensorsReady = true;
+            }
+        }
 
         /**
-         * Initialise device orientation sensors.
-         * iOS 13+ requires an explicit permission request triggered
-         * by a user gesture — that's why this runs on button click.
+         * Try to activate device orientation sensors.
+         * Must be called from a user gesture (for iOS permission).
+         * Returns true once sensors OR touch fallback are ready.
          */
         async function initSensors() {
-            // iOS 13+ permission gate
+            // Already working from a previous round
+            if (sensorMode === 'gyro' && gotSensorReading) return true;
+            if (sensorMode === 'touch') return true;
+
+            // ── Step 1: iOS 13+ permission request ──
             if (typeof DeviceOrientationEvent !== 'undefined' &&
                 typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
                     const perm = await DeviceOrientationEvent.requestPermission();
                     if (perm !== 'granted') {
-                        dom.sensorInfo.textContent = 'Motion permission denied.';
-                        return false;
+                        enableTouchFallback('Motion permission denied — using touch.');
+                        return true;
                     }
                 } catch (err) {
-                    dom.sensorInfo.textContent = 'Sensor error: ' + err.message;
-                    return false;
+                    enableTouchFallback('Sensor error — using touch controls.');
+                    return true;
                 }
             }
 
-            // Attach listener (works on Android without permission)
+            // ── Step 2: Attach listener ──
             if (typeof DeviceOrientationEvent !== 'undefined') {
+                gotSensorReading = false;
                 window.addEventListener('deviceorientation', onOrientation);
-                sensorsReady = true;
-                dom.sensorInfo.textContent = 'Sensors ready.';
-                return true;
+
+                // ── Step 3: Wait to verify real data arrives ──
+                await sleep(800);
+
+                if (gotSensorReading) {
+                    sensorMode = 'gyro';
+                    dom.sensorInfo.textContent = 'Sensors active.';
+                    return true;
+                }
+
+                // Sensors exist in API but aren't delivering data
+                window.removeEventListener('deviceorientation', onOrientation);
             }
 
-            // No sensors — enable desktop mouse fallback
-            enableDesktopFallback();
+            // ── Step 4: Fallback ──
+            enableTouchFallback('No sensor data — using touch controls.');
             return true;
         }
 
-        function onOrientation(e) {
-            if (e.beta !== null) {
-                currentBeta = e.beta;
-                sensorsReady = true;
-            }
-        }
-
         /**
-         * Desktop fallback: mouse/touch Y simulates tilt.
-         * Bottom of screen = upright (0° tilt).
-         * Top of screen = full tilt (70°+).
+         * Touch/mouse fallback: drag finger up to tilt, down for upright.
+         * Works on any device — desktop or mobile without gyroscope.
          */
-        function enableDesktopFallback() {
+        function enableTouchFallback(msg) {
+            if (sensorMode === 'touch') return; // already set up
+            sensorMode = 'touch';
             sensorsReady = true;
-            dom.sensorInfo.textContent = 'Desktop mode — mouse/touch simulates tilt.';
+            dom.sensorInfo.textContent = msg || 'Touch mode active.';
 
             const update = (clientY) => {
-                const norm = 1 - (clientY / window.innerHeight); // 0=bottom, 1=top
-                currentBeta = 90 + norm * 70; // 90°=upright, 160°=tilted
+                // Bottom of screen = upright (beta 90), top = tilted (beta 20)
+                const norm = 1 - (clientY / window.innerHeight);
+                currentBeta = 90 - norm * 70;
             };
 
             document.addEventListener('mousemove', (e) => update(e.clientY));
             document.addEventListener('touchmove', (e) => {
-                e.preventDefault();
                 update(e.touches[0].clientY);
-            }, { passive: false });
+            }, { passive: true });
         }
 
-        // Probe for sensors on page load
-        (() => {
-            if (typeof DeviceOrientationEvent === 'undefined') {
-                dom.sensorInfo.textContent = 'No motion sensors — desktop mode available.';
-                return;
-            }
-            let got = false;
-            const probe = (e) => {
-                if (e.beta !== null) { got = true; currentBeta = e.beta; }
-            };
-            window.addEventListener('deviceorientation', probe);
-            setTimeout(() => {
-                window.removeEventListener('deviceorientation', probe);
-                if (got) {
-                    dom.sensorInfo.textContent = 'Sensors detected — ready to play.';
-                } else {
-                    dom.sensorInfo.textContent = 'Sensors not detected — desktop mode available.';
-                }
-            }, 800);
-        })();
+        // Neutral message on page load — don't probe sensors yet
+        dom.sensorInfo.textContent = 'Tap START to begin.';
 
         /* ════════════════════════════════════════════════════════
          * GAME LIFECYCLE
          * ════════════════════════════════════════════════════════ */
 
         async function startGame() {
+            dom.btnStart.disabled = true;
+            dom.btnStart.textContent = 'CONNECTING...';
+
             const ok = await initSensors();
             if (!ok) return;
 
-            // Let sensor readings stabilise briefly
-            await sleep(250);
+            dom.btnStart.disabled = false;
+            dom.btnStart.textContent = 'START';
 
             // *** CALIBRATION ***
             // Whatever angle the phone is at RIGHT NOW becomes "upright" (0°).
@@ -773,6 +786,8 @@
 
         function resetGame() {
             state = 'idle';
+            dom.btnStart.disabled = false;
+            dom.btnStart.textContent = 'START';
             showScreen('start');
         }
 
@@ -833,9 +848,9 @@
         });
         dom.btnRetry.addEventListener('click', resetGame);
 
-        // Prevent pull-to-refresh and other touch defaults during game
+        // Prevent pull-to-refresh during gyro play (but allow touch fallback moves)
         document.addEventListener('touchmove', (e) => {
-            if (state === 'playing') e.preventDefault();
+            if (state === 'playing' && sensorMode === 'gyro') e.preventDefault();
         }, { passive: false });
 
         // Prevent double-tap zoom
