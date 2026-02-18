@@ -849,6 +849,7 @@
             showScreen('game');
             render(false);
             requestWakeLock();
+            if (navigator.vibrate) navigator.vibrate(80);
 
             lastTime = performance.now();
             rafId = requestAnimationFrame(tick);
@@ -916,6 +917,16 @@
             "Yer man here couldn't split a G if his life depended on it!",
         ];
 
+        const GRANNY_DOWNED = [
+            "HOLY MOTHER! Did ye just DOWN that in one?! Are ye an ANIMAL?!",
+            "Jaysus Christ on a bicycle! That was a PINT, not a shot!",
+            "Sweet suffering Jesus! Slow DOWN, ye absolute savage!",
+            "In the name of God! Me father didn't fight for this carry-on!",
+            "Mother of divine mercy! Ye drank it like it owed ye money!",
+            "Would ye STOP! That pint had a family!",
+            "Lord above! I've seen thirstier camels show more restraint!",
+        ];
+
         function endGame() {
             state = 'scored';
             if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
@@ -933,13 +944,15 @@
                                      title = 'Drink More!';      sub = 'Didn\'t commit to the sip.'; }
             else                   { title = 'Too Greedy!';      sub = 'Left the G behind.'; }
 
-            /* Granny insult when they barely drank (10% or less) */
-            if (liquidLevel >= 90) {
-                title = 'Mother of God!';
+            /* Granny insult for terrible pours */
+            let grannyPool = null;
+            if (liquidLevel >= 90) grannyPool = GRANNY_INSULTS;
+            if (liquidLevel <= 20) grannyPool = GRANNY_DOWNED;
+
+            if (grannyPool) {
+                title = liquidLevel <= 20 ? 'Holy Mother!' : 'Mother of God!';
                 sub = '';
-                const insult = GRANNY_INSULTS[Math.floor(Math.random() * GRANNY_INSULTS.length)];
-                dom.grannyBub.textContent = insult;
-                /* Remove then re-add .active to restart CSS animations */
+                dom.grannyBub.textContent = grannyPool[Math.floor(Math.random() * grannyPool.length)];
                 dom.granny.classList.remove('active');
                 void dom.granny.offsetWidth;
                 dom.granny.classList.add('active');
